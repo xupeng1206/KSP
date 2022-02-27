@@ -1,0 +1,724 @@
+on init
+	{Created by xupeng}
+	{Fix CSS Delay}
+	{You should offset your MIDI track with -333ms delay}
+		
+	declare @scriptTitle
+	@scriptTitle := "Fix CSS Delay"
+	set_script_title(@scriptTitle)
+
+	declare @disclaimer
+	@disclaimer := @scriptTitle & " | Mod by Xupeng."
+
+	{Enable Fix Delay}
+	declare $fixEnable
+	$fixEnable := 0
+	make_persistent($fixEnable)
+	read_persistent_var($fixEnable)
+
+	{CC for keyswitch, CC58 default}
+	declare $keyswitchCC
+	$keyswitchCC := 58
+	make_persistent($keyswitchCC)
+	read_persistent_var($keyswitchCC)
+
+	{Channel we are going to edit on}
+	declare $inputChannel
+	$inputChannel := 0
+	make_persistent($inputChannel)
+	read_persistent_var($inputChannel)
+	
+	{CSS play mode}
+	{0 is any generic note, 1 is shorts, 2 is minor trills, 3 is major trills, 4 is longs or standard legato, 5 is longs or advanced legato}
+	declare $noteMode
+	$noteMode := 0
+	make_persistent($noteMode)
+	read_persistent_var($noteMode)
+
+	declare $firstLegato
+	$firstLegato := 0
+	make_persistent($firstLegato)
+	read_persistent_var($firstLegato)
+
+	declare $legatoMode
+	$noteMode := 0
+	make_persistent($legatoMode)
+	read_persistent_var($legatoMode)
+
+	{Note of incoming keyswitch}
+	declare $keyswitchNote
+	$keyswitchNote := 0
+	make_persistent($keyswitchNote)
+	read_persistent_var($keyswitchNote)
+
+	{Velocity of incoming keyswitch}
+	declare $keyswitchVelocity
+	$keyswitchVelocity := 0
+	make_persistent($keyswitchVelocity)
+	read_persistent_var($keyswitchVelocity)
+
+	{Note of incoming legato keyswitch}
+	declare $legatoKeyswitchNote
+	$legatoKeyswitchNote := 0
+	make_persistent($legatoKeyswitchNote)
+	read_persistent_var($legatoKeyswitchNote)
+
+	{Velocity of incoming legato keyswitch}
+	declare $legatoKeyswitchVelocity
+	$legatoKeyswitchVelocity := 0
+	make_persistent($legatoKeyswitchVelocity)
+	read_persistent_var($legatoKeyswitchVelocity)
+
+	{Speed of shorts like staccato}
+	declare $shortsDelay
+	$shortsDelay := 60
+	make_persistent($shortsDelay)
+	read_persistent_var($shortsDelay)
+	
+	{Speed of slow legato transitions used by advanced legato}
+	declare $slowLegatoDelay
+	$slowLegatoDelay := 330
+	make_persistent($slowLegatoDelay)
+	read_persistent_var($slowLegatoDelay)
+	
+	{Speed of medium legato transition used by advanced legato}
+	declare $mediumLegatoDelay
+	$mediumLegatoDelay := 250
+	make_persistent($mediumLegatoDelay)
+	read_persistent_var($mediumLegatoDelay)
+	
+	{Speed of fast legato transition and sustains like trills, marcato, harmonics etc.}
+	declare $fastLegatoDelay
+	$fastLegatoDelay := 100
+	make_persistent($fastLegatoDelay)
+	read_persistent_var($fastLegatoDelay)
+		
+	{Last delay}
+	declare $lastDelay
+	$lastDelay := 0
+	make_persistent($lastDelay)
+	read_persistent_var($lastDelay)
+
+	{Keyswitches}
+	declare $keyswitchLow
+	declare $keyswitchHigh
+	declare $sustainKeyswitch
+	declare $staccatoKeyswitch
+	declare $tremoloKeyswitch
+	declare $harmonicsKeyswitch
+	declare $trillsKeyswitch
+	declare $measuredTremoloKeyswitch
+	declare $marcatoKeyswitch
+	declare $pizzicatoKeyswitch	
+	declare $legatoKeyswitch
+	declare $conSordinoKeyswitch
+	declare $firstLegatoswitch
+	declare %keyswitchArray[11]
+	declare %keyswitchSortArray[11]
+
+	$keyswitchLow := 0
+	$keyswitchHigh := 0
+	$sustainKeyswitch := 24
+	$staccatoKeyswitch := 29
+	$tremoloKeyswitch := 25
+	$harmonicsKeyswitch := 28
+	$trillsKeyswitch := 27
+	$measuredTremoloKeyswitch := 26
+	$marcatoKeyswitch := 30
+	$pizzicatoKeyswitch := 31
+	$conSordinoKeyswitch := 35
+	$legatoKeyswitch := 34
+	$firstLegatoswitch := 33
+
+	make_persistent($keyswitchLow)
+	make_persistent($keyswitchHigh)
+	make_persistent($sustainKeyswitch)
+	make_persistent($staccatoKeyswitch)
+	make_persistent($tremoloKeyswitch)
+	make_persistent($harmonicsKeyswitch)
+	make_persistent($trillsKeyswitch)
+	make_persistent($measuredTremoloKeyswitch)
+	make_persistent($marcatoKeyswitch)
+	make_persistent($pizzicatoKeyswitch)
+	make_persistent($legatoKeyswitch)
+	make_persistent($conSordinoKeyswitch)
+	make_persistent($firstLegatoswitch)
+
+	read_persistent_var($keyswitchLow)
+	read_persistent_var($keyswitchHigh)
+	read_persistent_var($sustainKeyswitch)
+	read_persistent_var($staccatoKeyswitch)
+	read_persistent_var($tremoloKeyswitch)
+	read_persistent_var($harmonicsKeyswitch)
+	read_persistent_var($trillsKeyswitch)
+	read_persistent_var($measuredTremoloKeyswitch)
+	read_persistent_var($marcatoKeyswitch)
+	read_persistent_var($pizzicatoKeyswitch)
+	read_persistent_var($legatoKeyswitch)
+	read_persistent_var($conSordinoKeyswitch)
+	read_persistent_var($firstLegatoswitch)
+
+	{Set up low and high keyswitch ranges}
+	%keyswitchArray[0] := $sustainKeyswitch
+	%keyswitchArray[1] := $staccatoKeyswitch
+	%keyswitchArray[2] := $tremoloKeyswitch
+	%keyswitchArray[3] := $harmonicsKeyswitch
+	%keyswitchArray[4] := $trillsKeyswitch
+	%keyswitchArray[5] := $measuredTremoloKeyswitch
+	%keyswitchArray[6] := $marcatoKeyswitch
+	%keyswitchArray[7] := $pizzicatoKeyswitch
+	%keyswitchArray[8] := $legatoKeyswitch
+	%keyswitchArray[9] := $conSordinoKeyswitch
+	%keyswitchArray[10] := $firstLegatoswitch
+
+	{Sort the array to the lowest and highest range}
+	declare $i
+	$i := 0
+	while ($i < num_elements(%keyswitchArray))
+
+		%keyswitchSortArray[$i] := %keyswitchArray[$i]
+		$i := $i + 1
+
+	end while
+	sort(%keyswitchSortArray,0)
+
+	$keyswitchLow := %keyswitchSortArray[0]
+	$keyswitchHigh := %keyswitchSortArray[10]
+	
+	
+	{Tabs and Layout}
+	declare ui_label $titleLabel(1,1)
+	declare ui_button $fixEnableButton
+	declare ui_label $trackDelayLabel(3,1)
+	declare ui_label $statusLabel(4,1)
+	declare ui_label $inputChannelLabel(1,1)
+	declare ui_value_edit $inputChannelEditor(1,16,1)
+	declare ui_label $keyswitchCCLabel(1,1)
+	declare ui_value_edit $keyswitchCCEditor(0,127,1)
+
+	set_text($titleLabel,@scriptTitle)
+	set_text($fixEnableButton,"Enable")
+	set_text($trackDelayLabel,"Set Track With -333ms Delay")
+	set_text($statusLabel,@disclaimer)
+	set_text($inputChannelLabel, "Input Channel")
+	set_text($inputChannelEditor, "")
+	set_text($keyswitchCCLabel, "Keyswitch CC")
+	set_text($keyswitchCCEditor, "")
+
+	move_control($titleLabel,1,1)
+	move_control($fixEnableButton,1,2)
+	move_control($trackDelayLabel,2,2)
+	move_control($statusLabel,1,3)
+	move_control($inputChannelLabel,1,4)
+	move_control($inputChannelEditor,2,4)
+	move_control($keyswitchCCLabel,3,4)
+	move_control($keyswitchCCEditor,4,4)
+	
+	{Populate the UI}
+	$inputChannelEditor := $inputChannel + 1
+	$keyswitchCCEditor := $keyswitchCC
+	
+end on
+
+{UI Change, Value Binding}
+
+{fixEnable Status switch}
+on ui_control ($fixEnableButton)
+	if ($fixEnableButton = 1)
+		$fixEnable := 1
+	else
+		$fixEnable := 0
+	end if
+end on
+
+
+on ui_control ($inputChannelEditor)
+	$inputChannel := $inputChannelEditor - 1
+end on
+
+on ui_control ($keyswitchCCEditor)
+	$keyswitchCC := $keyswitchCCEditor
+end on
+
+
+{Sets the value of noteMode, based on the values defined by CSS's keyswitch CC}
+function SetNoteMode
+	{There seems to be an inherrant latency with testing the CC's value in the same callback, so wait a moment}
+	wait (3)
+
+	select(%CC[$keyswitchCC])
+		case 0 to 5
+			{Standard Legato}
+			{Test whether we're using CSS, CSB or CSW here}
+			$noteMode := 4
+			set_text($statusLabel,"Articulation updated to sustain/standard legato")
+			
+		case 6 to 10
+			{Advanced Legato}
+			{Test whether we're using CSS, CSB or CSW here}
+			$noteMode := 5
+			set_text($statusLabel,"Articulation updated to sustain/advanced legato")
+			
+		case 11 to 45
+			{Shorts}
+			$noteMode := 1
+			set_text($statusLabel,"Articulation updated to shorts")
+
+		case 46 to 47
+			{Half Trills}
+			$noteMode := 2
+			set_text($statusLabel,"Articulation updated to minor trills")
+
+		case 48 to 50
+			{Whole Trills}
+			$noteMode := 3
+			set_text($statusLabel,"Articulation updated to major trills")
+
+		case 51 to 75
+			{General Longs}
+			$noteMode := 0
+			set_text($statusLabel,"Articulation updated to general longs")
+
+		case 76 to 85
+			{Turning on or off Legato}
+			if (in_range(%CC[$keyswitchCC],76,80))
+				$legatoMode := 1
+				set_text($statusLabel,"Legato turned on")
+			end if
+			if (in_range(%CC[$keyswitchCC],81,85))
+				$legatoMode := 0
+				set_text($statusLabel,"Legato turned off")
+			end if
+		case 96 to 127
+			$firstLegato := 1
+			set_text($statusLabel,"Reset First Legato note")
+	end select
+
+end function
+
+
+{#REF This needs looking at generally against CSW keyswitches}
+{Sets noteMode based on input values for keyswitches}
+function SetNoteMode_Keyswitch
+
+	{Keyswitches have a velocity associated, so we need to test both bytes}
+	if ($keyswitchNote = $sustainKeyswitch)
+		if (in_range($keyswitchVelocity,0,64))
+			{Standard Legato}
+			$noteMode := 4
+		end if
+		
+		if (in_range($keyswitchVelocity,65,127))
+			{Advanced Legato}
+			$noteMode := 5
+		end if
+	end if
+
+	if ($keyswitchNote = $tremoloKeyswitch)
+		{Tremolo Longs or Muted in brass}
+		{Tremolo}
+		$noteMode := 0	
+	end if
+
+	if ($keyswitchNote = $harmonicsKeyswitch)
+		{Harmonics Longs}		
+		$noteMode := 0
+	end if
+
+	if ($keyswitchNote = $measuredTremoloKeyswitch)
+		{Measured Tremolo Longs}		
+		$noteMode := 0
+	end if
+
+	if ($keyswitchNote = $marcatoKeyswitch)
+		{Marcato Longs}		
+		if (in_range($keyswitchVelocity,0,64))
+			{Standard Legato}
+			$noteMode := 0
+		else
+			{Advanced Legato}
+			$noteMode := 0
+		end if
+	end if
+
+	if ($keyswitchNote = $staccatoKeyswitch)
+		{Staccato}
+		if (in_range($keyswitchVelocity,0, 32))
+			$noteMode := 1
+		end if
+		if (in_range($keyswitchVelocity,33, 64))
+			$noteMode := 1
+		end if
+		if (in_range($keyswitchVelocity,65, 96))
+			$noteMode := 1
+		end if
+		if (in_range($keyswitchVelocity,97, 127))
+			$noteMode := 1
+		end if
+	end if
+
+	if ($keyswitchNote = $pizzicatoKeyswitch)
+		{Pizzicato}
+		if (in_range($keyswitchVelocity,0, 41))
+			$noteMode := 1
+		end if
+		if (in_range($keyswitchVelocity,42, 84))
+			$noteMode := 1
+		end if
+		if (in_range($keyswitchVelocity,85, 127))
+			$noteMode := 1
+		end if
+	end if
+
+	if ($keyswitchNote = $trillsKeyswitch)
+		if (in_range($keyswitchVelocity,0,64))
+			{Half Trills}
+			$noteMode := 2
+		else
+			{Whole Trills}
+			$noteMode := 3
+		end if
+	end if
+
+	if ($legatoKeyswitchNote = $legatoKeyswitch)		
+		{Turning on Legato}
+		if (in_range($legatoKeyswitchVelocity,0,64))
+			$legatoMode := 0
+		else
+			$legatoMode := 1
+		end if
+	end if
+
+	if ($keyswitchNote = $firstLegatoswitch)
+		{ensure the first legato}
+		$firstLegato := 1
+	end if
+
+end function
+
+
+{ON MIDI IN, we process if the command is CC, note_on or note_off}
+on midi_in
+	{MIDI CC}
+	if ($MIDI_COMMAND = $MIDI_COMMAND_CC and $MIDI_CHANNEL = $inputChannel)
+		if ($MIDI_BYTE_1 = $keyswitchCC)
+			call SetNoteMode
+		end if
+
+		if ($fixEnable = 1)
+
+			ignore_midi
+
+			{Delay the use CC itself if we're already in a destination noteMode}
+			
+			select ($noteMode)
+				case 0
+					wait (($slowLegatoDelay - $fastLegatoDelay - 3) * 1000)
+				case 1
+					wait (($slowLegatoDelay - $shortsDelay - 3) * 1000)
+				case 2
+					wait (($slowLegatoDelay - $fastLegatoDelay - 3) * 1000)
+				case 3
+					wait (($slowLegatoDelay - $fastLegatoDelay - 3) * 1000)
+				case 4
+					{Just calling it out, do nothing here}
+					wait(1)
+				case 5
+					{Just calling it out, do nothing here}
+					wait(1)
+			end select
+
+			set_midi($inputChannel,$MIDI_COMMAND_CC,$MIDI_BYTE_1,$MIDI_BYTE_2)
+
+		end if
+
+	end if
+	
+	{MIDI NOTE ON}
+	if ($MIDI_COMMAND = $MIDI_COMMAND_NOTE_ON and $MIDI_BYTE_2 > 0 and $MIDI_CHANNEL = $inputChannel)
+				
+		{Check if the note being played is the legato keyswitch}
+		if (in_range($EVENT_NOTE,$keyswitchLow,$keyswitchHigh))
+		
+			ignore_midi
+			if($MIDI_BYTE_1 = $legatoKeyswitch)
+				$legatoKeyswitchNote := $MIDI_BYTE_1
+				$legatoKeyswitchVelocity := $MIDI_BYTE_2
+			else
+				$keyswitchNote := $MIDI_BYTE_1
+				$keyswitchVelocity := $MIDI_BYTE_2
+			end if
+
+			call SetNoteMode_Keyswitch
+
+			if ($fixEnable = 1)
+				{Delay the keyswitch itself if we're already in a destination noteMode}
+				select ($noteMode)
+					case 0
+						wait (($slowLegatoDelay - $fastLegatoDelay - 3) * 1000)
+					case 1
+						wait (($slowLegatoDelay - $shortsDelay - 3) * 1000)
+					case 2
+						wait (($slowLegatoDelay - $fastLegatoDelay - 3) * 1000)
+					case 3
+						wait (($slowLegatoDelay - $fastLegatoDelay - 3) * 1000)
+					case 4
+						{Just calling it out, do nothing here}
+						wait(1)
+					case 5							
+						{Just calling it out, do nothing here}
+						wait(1)
+				end select
+			end if
+
+			set_midi($inputChannel,$MIDI_COMMAND_NOTE_ON,$MIDI_BYTE_1,$MIDI_BYTE_2)
+
+		end if
+		
+		{Check we're not playing a keyswitch}
+		if(not in_range($EVENT_NOTE,$keyswitchLow,$keyswitchHigh))
+
+			ignore_midi
+			
+			wait(3)
+			
+			{Check what type of delay is required, then play a note}
+			select ($noteMode)
+			
+				{Any other note that isn't a trill or short}
+				case 0
+					
+					$legatoMode := 0
+					if ($fixEnable = 1)
+						wait (($slowLegatoDelay - $fastLegatoDelay) * 1000)
+						$lastDelay := $fastLegatoDelay
+					else
+						$lastDelay := 0
+					end if
+					
+					set_text($statusLabel,"General longs note " & $MIDI_BYTE_1 & " with delay of " & $lastDelay)
+					set_midi($inputChannel,$MIDI_COMMAND_NOTE_ON,$MIDI_BYTE_1,$MIDI_BYTE_2)
+					
+				{Shorts}
+				case 1
+					
+					$legatoMode := 0
+					if ($fixEnable = 1)
+						wait (($slowLegatoDelay - $shortsDelay) * 1000)
+						$lastDelay := $shortsDelay
+					else
+						$lastDelay := 0
+					end if
+					
+					set_text($statusLabel,"Short note " & $MIDI_BYTE_1 & " with delay of " & $lastDelay)
+					set_midi($inputChannel,$MIDI_COMMAND_NOTE_ON,$MIDI_BYTE_1,$MIDI_BYTE_2)
+
+				{Minor trills}
+				case 2
+					
+					if ($fixEnable = 1)
+						wait (($slowLegatoDelay - $fastLegatoDelay) * 1000)
+						$lastDelay := $fastLegatoDelay
+					else
+						$lastDelay := 0
+					end if
+					
+					set_text($statusLabel,"Trill on " & $MIDI_BYTE_1 & " with delay of " & $lastDelay & ", Trills Mode Off")
+					set_midi($inputChannel,$MIDI_COMMAND_NOTE_ON,$MIDI_BYTE_1,$MIDI_BYTE_2)
+				
+				{Major trills}
+				case 3
+					
+					if ($fixEnable = 1)
+						wait (($slowLegatoDelay - $fastLegatoDelay) * 1000)
+						$lastDelay := $fastLegatoDelay
+					else
+						$lastDelay := 0
+					end if
+					
+					set_text($statusLabel,"Trill on " & $MIDI_BYTE_1 & " with delay of " & $lastDelay & ", Trills Mode Off")
+					set_midi($inputChannel,$MIDI_COMMAND_NOTE_ON,$MIDI_BYTE_1,$MIDI_BYTE_2)
+				
+					
+				{Standard Legato for CSS and used exclusively by CSB}
+				case 4
+					if ($legatoMode = 1)
+					
+						if ($firstLegato = 0)
+							{not first leg}
+							select ($MIDI_BYTE_2)
+								case 0 to 20
+									if ($fixEnable = 1)
+										$lastDelay := $slowLegatoDelay
+									else
+										$lastDelay := 0
+									end if
+									set_text($statusLabel,"Portamento note " & $MIDI_BYTE_1 & " in standard mode, with delay of " & $lastDelay)
+									
+								case 21 to 64
+									if ($fixEnable = 1)
+										wait (($slowLegatoDelay - $mediumLegatoDelay) * 1000)
+										$lastDelay := $mediumLegatoDelay
+									else
+										$lastDelay := 0
+									end if
+									
+									set_text($statusLabel,"Medium legato note " & $MIDI_BYTE_1 & " in standard mode, with delay of " & $lastDelay)
+								
+								case 65 to 127
+									if ($fixEnable = 1)
+										wait (($slowLegatoDelay - $fastLegatoDelay) * 1000)
+										$lastDelay := $fastLegatoDelay
+									else
+										$lastDelay := 0
+									end if
+									
+									set_text($statusLabel,"Fast legato note " & $MIDI_BYTE_1 & " in standard mode, with delay of " & $lastDelay)
+							end select
+						
+						else
+							if ($fixEnable = 1)
+								wait ($slowLegatoDelay * 1000)
+								$lastDelay := 0
+							else
+								$lastDelay := 0
+							end if
+							
+							set_text($statusLabel,"First legato note " & $MIDI_BYTE_1 & " in standard mode, with delay of " & $lastDelay)
+						end if
+						
+						set_midi($inputChannel,$MIDI_COMMAND_NOTE_ON,$MIDI_BYTE_1,$MIDI_BYTE_2)
+						{$legatoNotePitch := $MIDI_BYTE_1}
+						
+						if ($firstLegato = 1)
+							wait(3)
+							$firstLegato := 0	
+						end if
+						
+					else
+						{legato off}
+						if ($fixEnable = 1)
+							wait (($slowLegatoDelay - $fastLegatoDelay) * 1000)
+							$lastDelay := $fastLegatoDelay
+						else
+							$lastDelay := 0
+						end if
+						
+						set_text($statusLabel,"Sustain note " & $MIDI_BYTE_1 & " in standard mode, with delay of " & $lastDelay)
+						set_midi($inputChannel,$MIDI_COMMAND_NOTE_ON,$MIDI_BYTE_1,$MIDI_BYTE_2)
+					end if
+				
+				{Advanced Legato, only used by CSS and exclusively by CSW}
+				case 5
+					if ($legatoMode = 1)
+					
+						{Check if this is the first note in a legato sequence}
+						if ($firstLegato = 0)
+							{not first leg}
+							select ($MIDI_BYTE_2)
+								case 0 to 64
+								
+									if ($fixEnable = 1)
+										$lastDelay := $slowLegatoDelay
+									else
+										$lastDelay := 0
+									end if
+
+									{$lastDelay := $slowLegatoDelay}
+									set_text($statusLabel,"Slow or Portamento note " & $MIDI_BYTE_1 & " in advanced mode, with delay of " & $lastDelay)
+
+								case 64 to 100
+									if ($fixEnable = 1)
+										wait (($slowLegatoDelay - $mediumLegatoDelay) * 1000)
+										$lastDelay := $mediumLegatoDelay
+									else
+										$lastDelay := 0
+									end if
+									
+									set_text($statusLabel,"Medium legato note " & $MIDI_BYTE_1 & " in advanced mode, with delay of " & $lastDelay)
+								
+								case 101 to 127
+									if ($fixEnable = 1)
+										wait (($slowLegatoDelay - $fastLegatoDelay) * 1000)
+										$lastDelay := $fastLegatoDelay
+									else
+										$lastDelay := 0
+									end if
+									
+									set_text($statusLabel,"Fast legato note " & $MIDI_BYTE_1 & " in advanced mode, with delay of " & $lastDelay)
+
+							end select
+						
+						else
+							if ($fixEnable = 1)
+								wait ($slowLegatoDelay * 1000)
+								$lastDelay := 0
+							else
+								$lastDelay := 0
+							end if
+							set_text($statusLabel,"First legato note " & $MIDI_BYTE_1 & " in advanced mode, with delay of " & $lastDelay)
+						end if
+						
+						set_midi($inputChannel,$MIDI_COMMAND_NOTE_ON,$MIDI_BYTE_1,$MIDI_BYTE_2)
+						{$legatoNotePitch := $MIDI_BYTE_1}
+						
+						if ($firstLegato = 1)
+							wait(3)
+							$firstLegato := 0	
+						end if
+						
+
+					else
+						if ($fixEnable = 1)
+							wait (($slowLegatoDelay - $fastLegatoDelay) * 1000)
+							$lastDelay := $fastLegatoDelay
+						else
+							$lastDelay := 0
+						end if
+						
+						set_text($statusLabel,"Sustain note " & $MIDI_BYTE_1 & " in standard mode, with delay of " & $lastDelay)
+						set_midi($inputChannel,$MIDI_COMMAND_NOTE_ON,$MIDI_BYTE_1,$MIDI_BYTE_2)
+						
+					end if
+				
+			end select
+			
+		end if
+
+	end if
+	
+	{MIDI NOTE OFF}
+	if ($MIDI_COMMAND = $MIDI_COMMAND_NOTE_OFF and $MIDI_CHANNEL = $inputChannel)
+		{Check we're not playing a keyswitch}
+		if(not in_range($EVENT_NOTE,$keyswitchLow,$keyswitchHigh))
+		
+			{This note is not a keyswitch, drop it}
+			ignore_midi
+			
+			if ($fixEnable = 1)
+				if($legatoMode = 1)
+					{We add 32 mu to this in order to force legato overlaps on notes}
+					wait (($slowLegatoDelay - $lastDelay + 32) * 1000)					
+					{message("Delayed Legato Note Off. Delay: " & $lastDelay)}
+				else
+					{If we are not in legato mode, we should set the legato phrase length counter to 0 before delaying the note off}
+					{This is to deal with instances of swapping to a legato phrase immediately after the end of a non legato note}
+
+					if ($noteMode = 1)						
+						wait (($slowLegatoDelay - $shortsDelay - 3 ) * 1000)
+					else					
+						wait (($slowLegatoDelay - $lastDelay - 3) * 1000)
+					end if
+					{message("Delayed Note Off. Delay: " & $lastDelay)}
+				end if
+			else
+				{message("Note Off. Delay: " & $lastDelay)}
+			end if	
+			
+			set_midi($inputChannel,$MIDI_COMMAND_NOTE_OFF,$MIDI_BYTE_1,$MIDI_BYTE_2)
+			
+		end if
+		
+	end if
+	
+end on
