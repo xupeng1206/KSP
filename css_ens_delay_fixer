@@ -71,8 +71,8 @@ on init
 	$marcatoKeyswitch := 30 - 12
 	$pizzicatoKeyswitch	:= 31 - 12
 	$legatoKeyswitch := 34 - 12
-	$conSordinoKeyswitch := 35 - 12
-    $firstNoteKeyswitch := 23 - 12
+	$conSordinoKeyswitch := 23
+    $firstNoteKeyswitch := 22
 	
 	make_persistent($sustainKeyswitch)
 	make_persistent($staccatoKeyswitch)
